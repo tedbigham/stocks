@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net.Mime;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
@@ -10,24 +9,24 @@ using UnityEngine.UI;
 
 namespace UnityStocks
 {
-    public class GDAX : MonoBehaviour
+    public class GDAX : MonoBehaviour, IComparer<CurrencyRow>
     {
         public Text TotalUSD;
         public GameObject Content;
         public CurrencyRow RowPrefab;
 
+        public long RefreshIntervalSeconds = 10;
         public string apiKey;
         public string password;
         public string privateKey;
 
         private DateTime Epoch = new DateTime(1970, 1, 1);
         private byte[] privateKeyBytes;
-        private long nextRefresh = 0;
-        private const long RefreshIntervalSeconds = 10;
+        private long nextRefresh;
 
         private Dictionary<string, Account> Accounts = new Dictionary<string, Account>();
-        private Dictionary<string, Ticker> Tickers = new Dictionary<string, Ticker>();
-        private Dictionary<string, CurrencyRow> Rows = new Dictionary<string, CurrencyRow>();
+        //private Dictionary<string, Ticker> Tickers = new Dictionary<string, Ticker>();
+        private SortedDictionary<string, CurrencyRow> Rows = new SortedDictionary<string, CurrencyRow>();
 
         void Start()
         {
@@ -53,18 +52,20 @@ namespace UnityStocks
                 if(id == "USD") {
                     var row = GetRow(a.currency);
                     row.Holding.text = double.Parse(a.available).ToString("C");
-                    row.Price.text = "";
+                    row.PriceText.text = "";
                     RefreshTotal();
                 } else {
                     var path = string.Format("/products/{0}-USD/ticker", a.currency);
-
+                    var account = a;
                     Get<Ticker>(path, ticker => {
-                        Tickers[id] = ticker;
+                        //Tickers[id] = ticker;
                         var price = double.Parse(ticker.price);
                         var holding = price * double.Parse(a.balance);
 
-                        var row = GetRow(a.currency);
-                        row.Price.text = price.ToString("C");
+                        var row = GetRow(account.currency);
+                        row.Price = double.Parse(ticker.price);
+                        ;
+                        row.PriceText.text = price.ToString("C");
                         row.Holding.text = holding.ToString("C");
                         RefreshTotal();
                     });
@@ -82,14 +83,19 @@ namespace UnityStocks
             cr.transform.SetParent(Content.transform, false);
             cr.Symbol.text = symbol;
             Rows[symbol] = row;
+
+            var i = 0;
+            foreach (var r in Rows)
+                r.Value.transform.SetSiblingIndex(i++);
+
             return row;
         }
 
         private void RefreshTotal()
         {
             double total = 0;
-            foreach(var t in Tickers) {
-                total += double.Parse(t.Value.price) * double.Parse(Accounts[t.Key].balance);
+            foreach(var r in Rows) {
+                total += r.Value.Price * double.Parse(Accounts[r.Key].balance);
             }
             TotalUSD.text = total.ToString("C");
         }
@@ -105,9 +111,8 @@ namespace UnityStocks
             req.SetRequestHeader("CB-ACCESS-SIGN", Sign(ts, "GET", path));
 
             Downloader.Download(req, response => {
-                Debug.LogFormat("received response url={0} size={1}", req.url, response.Length);
                 var json = Encoding.UTF8.GetString(response);
-                Debug.LogFormat("json={0}", json);
+                Debug.LogFormat("received response url={0} json={1}", req.url, json);
                 var obj = JsonConvert.DeserializeObject<T>(json);
                 callback(obj);
             },
@@ -134,6 +139,11 @@ namespace UnityStocks
             if(Now() > nextRefresh) {
                 RefreshAccounts();
             }
+        }
+
+        public int Compare(CurrencyRow x, CurrencyRow y)
+        {
+            throw new NotImplementedException();
         }
     }
 }
