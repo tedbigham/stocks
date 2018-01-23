@@ -1,41 +1,48 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace UnityStocks
 {
-    public class GDAX : MonoBehaviour, IComparer<CurrencyRow>
+    public class GDAX : MonoBehaviour
     {
         public Text TotalUSD;
         public GameObject Content;
         public CurrencyRow RowPrefab;
 
         public long RefreshIntervalSeconds = 10;
-        public string apiKey;
-        public string password;
-        public string privateKey;
+        public static Settings Settings = new Settings();
 
         private DateTime Epoch = new DateTime(1970, 1, 1);
-        private byte[] privateKeyBytes;
         private long nextRefresh;
 
         private Dictionary<string, Account> Accounts = new Dictionary<string, Account>();
-        //private Dictionary<string, Ticker> Tickers = new Dictionary<string, Ticker>();
         private SortedDictionary<string, CurrencyRow> Rows = new SortedDictionary<string, CurrencyRow>();
+        public static string SettingsFile;
 
         void Start()
         {
+            SettingsFile = Application.persistentDataPath + "/settings";
             TotalUSD.text = "...";
-            privateKeyBytes = Convert.FromBase64String(privateKey);
+            if (File.Exists(SettingsFile))
+            {
+                JsonConvert.PopulateObject(File.ReadAllText(SettingsFile), Settings);
+            }
+            else
+                SceneManager.LoadScene("Settings");
         }
 
         private void RefreshAccounts()
         {
+            if (string.IsNullOrEmpty(Settings.ApiKey)) return;
+
             Get<Account[]>("/accounts", accounts => {
                 foreach(var a in accounts) {
                     Accounts[a.currency] = a;
@@ -105,8 +112,8 @@ namespace UnityStocks
             var url = string.Format("https://api.gdax.com{0}", path);
             var ts = Now().ToString();
             var req = UnityWebRequest.Get(url);
-            req.SetRequestHeader("CB-ACCESS-KEY", apiKey);
-            req.SetRequestHeader("CB-ACCESS-PASSPHRASE", password);
+            req.SetRequestHeader("CB-ACCESS-KEY", Settings.ApiKey);
+            req.SetRequestHeader("CB-ACCESS-PASSPHRASE", Settings.Password);
             req.SetRequestHeader("CB-ACCESS-TIMESTAMP", ts);
             req.SetRequestHeader("CB-ACCESS-SIGN", Sign(ts, "GET", path));
 
@@ -124,7 +131,7 @@ namespace UnityStocks
         private string Sign(string timestamp, string method, string requestPath, string body = "")
         {
             var all = timestamp + method + requestPath + body;
-            var hmac = new HMACSHA256(privateKeyBytes);
+            var hmac = new HMACSHA256(Convert.FromBase64String(Settings.PrivateKey.Trim()));
             var sig = hmac.ComputeHash(Encoding.ASCII.GetBytes(all));
             return Convert.ToBase64String(sig);
         }
@@ -141,9 +148,9 @@ namespace UnityStocks
             }
         }
 
-        public int Compare(CurrencyRow x, CurrencyRow y)
+        public void OpenSettings()
         {
-            throw new NotImplementedException();
+            SceneManager.LoadScene("Settings");
         }
     }
 }
