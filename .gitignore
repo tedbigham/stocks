@@ -1,0 +1,7 @@
+.collabignore
+.vs/
+Library/
+Temp/
+UnityPackageManager/
+UnityStocks.csproj
+UnityStocks.sln

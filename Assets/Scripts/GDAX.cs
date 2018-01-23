@@ -16,10 +16,11 @@ namespace UnityStocks
         public GameObject Content;
         public CurrencyRow RowPrefab;
 
+        public string apiKey;
+        public string password;
+        public string privateKey;
+
         private DateTime Epoch = new DateTime(1970, 1, 1);
-        private string apiKey = "8b736e0d5c081cebbfd29dd2f9faa86f";
-        private string password = "any2grtthy";
-        private string privateKey = "+fM9zReJtnImSPUueSfA40M6fUBnIHnuR0z0y0EsKqS31BLAUCapHeR4e3JnH5flQskQaUDwx3y9XDYfS1dD0g==";
         private byte[] privateKeyBytes;
         private long nextRefresh = 0;
         private const long RefreshIntervalSeconds = 10;
